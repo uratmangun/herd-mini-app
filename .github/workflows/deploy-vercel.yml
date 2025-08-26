@@ -1,0 +1,384 @@
+name: "🚀 Deploy to Vercel"
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: "📥 Checkout code"
+        uses: actions/checkout@v4
+
+      - name: "🛠️ Setup pnpm"
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: "🧰 Setup Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: "📦 Install dependencies"
+        run: pnpm install --no-frozen-lockfile
+
+      - name: "🧪 Type check"
+        run: pnpm run type-check
+
+      - name: "🛠️ Install Vercel CLI"
+        run: pnpm add -g vercel@latest
+
+      - name: "🧹 Check and delete existing matching Vercel projects"
+        id: cleanup-projects
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          # Get repository name for pattern matching
+          REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+          REPO_PATTERN="${REPO_NAME}-"
+          
+          echo "========================================="
+          echo "Cleaning up existing Vercel projects"
+          echo "Pattern: ${REPO_PATTERN}*"
+          echo "========================================="
+          
+          # List all Vercel projects
+          PROJECTS=$(curl -s -X GET \
+            "https://api.vercel.com/v9/projects" \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            -H "Content-Type: application/json")
+          
+          # Extract project names that match the pattern
+          MATCHING_PROJECTS=$(echo "$PROJECTS" | jq -r ".projects[] | select(.name | startswith(\"${REPO_PATTERN}\")) | .name" || true)
+          
+          if [ -n "$MATCHING_PROJECTS" ]; then
+            echo "Found matching Vercel projects to delete:"
+            echo "$MATCHING_PROJECTS"
+            echo ""
+            
+            # Delete each matching project with rate limiting
+            while IFS= read -r PROJECT; do
+              if [ -n "$PROJECT" ]; then
+                echo "Deleting Vercel project: $PROJECT"
+                DELETE_RESPONSE=$(curl -s -X DELETE \
+                  "https://api.vercel.com/v9/projects/${PROJECT}" \
+                  -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+                  -H "Content-Type: application/json")
+                
+                # Check if deletion was successful (Vercel API returns empty response on success)
+                if [ -z "$DELETE_RESPONSE" ] || [ "$DELETE_RESPONSE" = "{}" ]; then
+                  echo "✓ Successfully deleted Vercel project: $PROJECT"
+                else
+                  echo "⚠ Warning: Failed to delete Vercel project: $PROJECT"
+                  echo "Response: $DELETE_RESPONSE"
+                fi
+                
+                # Rate limiting - wait 1 second between deletions
+                sleep 1
+              fi
+            done <<< "$MATCHING_PROJECTS"
+          else
+            echo "No existing Vercel projects found matching pattern: ${REPO_PATTERN}*"
+          fi
+          
+          echo ""
+          echo "========================================="
+          echo "Cleanup complete"
+          echo "========================================="
+
+      - name: "🆕 Generate Vercel project name and create project"
+        id: generate-vercel-project
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          # Get repository name
+          REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+          
+          # Generate random alphanumeric string
+          RANDOM_STRING=$(openssl rand -hex 8 | tr -d '\n')
+          
+          # Combine repository name with random string
+          PROJECT_NAME="${REPO_NAME}-${RANDOM_STRING}"
+          
+          # Ensure minimum length of 26 characters
+          while [ ${#PROJECT_NAME} -lt 26 ]; do
+            EXTRA_CHARS=$(openssl rand -hex 2 | tr -d '\n')
+            PROJECT_NAME="${PROJECT_NAME}${EXTRA_CHARS}"
+          done
+          
+          # Ensure project name is valid (lowercase, alphanumeric, hyphens only)
+          PROJECT_NAME=$(echo "$PROJECT_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g')
+          
+          echo "Generated project name: $PROJECT_NAME"
+          
+          # Create new Vercel project
+          CREATE_RESPONSE=$(curl -s -X POST \
+            "https://api.vercel.com/v9/projects" \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"name\": \"$PROJECT_NAME\",
+              \"framework\": \"nextjs\"
+            }")
+          
+          PROJECT_ID=$(echo "$CREATE_RESPONSE" | jq -r '.id')
+          
+          if [ "$PROJECT_ID" != "null" ] && [ -n "$PROJECT_ID" ]; then
+            echo "✓ Successfully created Vercel project: $PROJECT_NAME"
+            echo "Project ID: $PROJECT_ID"
+            echo "project_name=$PROJECT_NAME" >> $GITHUB_OUTPUT
+            echo "project_id=$PROJECT_ID" >> $GITHUB_OUTPUT
+            
+            # Link the project to current directory
+            echo "🔗 Linking Vercel project..."
+            vercel link --token="$VERCEL_TOKEN" --yes --project="$PROJECT_ID"
+          else
+            echo "❌ Failed to create Vercel project"
+            echo "Response: $CREATE_RESPONSE"
+            exit 1
+          fi
+
+      - name: "🚢 Deploy temporary build to Vercel for screenshots"
+        id: deploy-temp
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          # Farcaster Configuration
+          FARCASTER_FID: ${{ secrets.FARCASTER_FID }}
+          FARCASTER_CUSTODY_ADDRESS: ${{ secrets.FARCASTER_CUSTODY_ADDRESS }}
+          FARCASTER_CUSTODY_PRIVATE_KEY: ${{ secrets.FARCASTER_CUSTODY_PRIVATE_KEY }}
+          NEXT_PUBLIC_APP_DOMAIN: https://${{ steps.generate-vercel-project.outputs.project_name }}.vercel.app
+          # App Metadata
+          FARCASTER_APP_NAME: ${{ secrets.FARCASTER_APP_NAME }}
+          FARCASTER_APP_BUTTON_TITLE: ${{ secrets.FARCASTER_APP_BUTTON_TITLE }}
+          FARCASTER_APP_DESCRIPTION: ${{ secrets.FARCASTER_APP_DESCRIPTION }}
+          FARCASTER_SPLASH_BACKGROUND_COLOR: ${{ secrets.FARCASTER_SPLASH_BACKGROUND_COLOR }}
+          # API Keys
+          TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Optional Configuration
+          FARCASTER_WEBHOOK_SECRET: ${{ secrets.FARCASTER_WEBHOOK_SECRET }}
+          FLUX_GENERATION_DELAY: ${{ secrets.FLUX_GENERATION_DELAY }}
+        run: |
+          echo "🚢 Deploying temporary build to Vercel for screenshot generation..."
+          
+          # Deploy to Vercel and capture the deployment URL
+          TEMP_DEPLOYMENT_URL=$(vercel deploy \
+            --token="$VERCEL_TOKEN" \
+            --yes \
+            --build-env FARCASTER_FID="$FARCASTER_FID" \
+            --build-env FARCASTER_CUSTODY_ADDRESS="$FARCASTER_CUSTODY_ADDRESS" \
+            --build-env FARCASTER_CUSTODY_PRIVATE_KEY="$FARCASTER_CUSTODY_PRIVATE_KEY" \
+            --build-env NEXT_PUBLIC_APP_DOMAIN="$NEXT_PUBLIC_APP_DOMAIN" \
+            --build-env FARCASTER_APP_NAME="$FARCASTER_APP_NAME" \
+            --build-env FARCASTER_APP_BUTTON_TITLE="$FARCASTER_APP_BUTTON_TITLE" \
+            --build-env FARCASTER_APP_DESCRIPTION="$FARCASTER_APP_DESCRIPTION" \
+            --build-env FARCASTER_SPLASH_BACKGROUND_COLOR="$FARCASTER_SPLASH_BACKGROUND_COLOR" \
+            --build-env TOGETHER_API_KEY="$TOGETHER_API_KEY" \
+            --build-env GEMINI_API_KEY="$GEMINI_API_KEY" \
+            --build-env FARCASTER_WEBHOOK_SECRET="$FARCASTER_WEBHOOK_SECRET" \
+            --build-env FLUX_GENERATION_DELAY="$FLUX_GENERATION_DELAY" \
+            ./)
+          
+          echo "✅ Temporary deployment URL: $TEMP_DEPLOYMENT_URL"
+          
+          # Extract the deployment ID from the URL for deletion later
+          # Vercel URLs are in format: https://[project]-[deploymentid].vercel.app
+          DEPLOYMENT_ID=$(echo "$TEMP_DEPLOYMENT_URL" | sed -n 's/.*-\([a-z0-9]\{9\}\)\.vercel\.app.*/\1/p')
+          
+          if [[ -z "$DEPLOYMENT_ID" ]]; then
+            # If we can't extract from URL, get it from Vercel API
+            echo "🔍 Getting deployment ID from Vercel API..."
+            DEPLOYMENT_ID=$(curl -s -X GET \
+              "https://api.vercel.com/v13/deployments?projectId=${{ steps.generate-vercel-project.outputs.project_id }}&limit=1" \
+              -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+              -H "Content-Type: application/json" | jq -r '.deployments[0].uid')
+          fi
+          
+          echo "deployment_url=$TEMP_DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+          echo "deployment_id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
+          echo "📦 Deployment ID saved for cleanup: $DEPLOYMENT_ID"
+      - name: "🔑 Generate Farcaster account association"
+        env:
+            NEXT_PUBLIC_APP_DOMAIN: ${{ steps.generate-vercel-project.outputs.project_name }}.vercel.app
+            FARCASTER_FID: ${{ secrets.FARCASTER_FID }}
+            FARCASTER_CUSTODY_ADDRESS: ${{ secrets.FARCASTER_CUSTODY_ADDRESS }}
+            FARCASTER_CUSTODY_PRIVATE_KEY: ${{ secrets.FARCASTER_CUSTODY_PRIVATE_KEY }}
+        run: |
+            echo "🔧 Generating Farcaster account association for domain: $NEXT_PUBLIC_APP_DOMAIN"
+            node scripts/generate-farcaster-account-association.js generate
+      - name: "🎨 Generate AI icon"
+        env:
+          TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
+        run: |
+          echo "🎨 Generating AI icon using Flux API"
+          node scripts/generate-flux-icon.js
+
+      - name: "📸 Generate screenshots"
+        env:
+          BROWSERLESS_API_URL: ${{ secrets.BROWSERLESS_API_URL }}
+        run: |
+          # Extract clean project name from deployment URL
+          DEPLOYMENT_URL="${{ steps.deploy-temp.outputs.deployment_url }}"
+          BASE_PROJECT_NAME=$(echo "$DEPLOYMENT_URL" | sed 's|https://||' | sed 's|\.vercel\.app.*||' | sed 's|-[a-z0-9]*$||')
+          
+          # Use clean domain format
+          CLEAN_DOMAIN="${BASE_PROJECT_NAME}.vercel.app"
+          CLEAN_URL="https://${CLEAN_DOMAIN}"
+          
+          echo "📸 Generating screenshots from deployment: $CLEAN_DOMAIN"
+          echo "Using clean URL: $CLEAN_URL"
+          
+          # Export for the script
+          export SCREENSHOT_URL="$CLEAN_URL"
+          export NEXT_PUBLIC_APP_DOMAIN="$CLEAN_DOMAIN"
+          
+          node scripts/generate-screenshots.js
+
+      - name: "🏗️ Build application"
+        run: pnpm run build
+        env:
+          NODE_ENV: production
+          NEXT_TELEMETRY_DISABLED: 1
+          NODE_OPTIONS: "--max-old-space-size=4096"
+          NEXT_PUBLIC_APP_DOMAIN: https://${{ steps.generate-vercel-project.outputs.project_name }}.vercel.app
+          # Pass all Farcaster and API configuration for build-time generation
+          FARCASTER_FID: ${{ secrets.FARCASTER_FID }}
+          FARCASTER_CUSTODY_ADDRESS: ${{ secrets.FARCASTER_CUSTODY_ADDRESS }}
+          FARCASTER_CUSTODY_PRIVATE_KEY: ${{ secrets.FARCASTER_CUSTODY_PRIVATE_KEY }}
+          FARCASTER_APP_NAME: ${{ secrets.FARCASTER_APP_NAME }}
+          FARCASTER_APP_BUTTON_TITLE: ${{ secrets.FARCASTER_APP_BUTTON_TITLE }}
+          FARCASTER_APP_DESCRIPTION: ${{ secrets.FARCASTER_APP_DESCRIPTION }}
+          FARCASTER_SPLASH_BACKGROUND_COLOR: ${{ secrets.FARCASTER_SPLASH_BACKGROUND_COLOR }}
+          TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          FARCASTER_WEBHOOK_SECRET: ${{ secrets.FARCASTER_WEBHOOK_SECRET }}
+          FLUX_GENERATION_DELAY: ${{ secrets.FLUX_GENERATION_DELAY }}
+
+      - name: "🚀 Deploy to Vercel (Production)"
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          # Farcaster Configuration
+          FARCASTER_FID: ${{ secrets.FARCASTER_FID }}
+          FARCASTER_CUSTODY_ADDRESS: ${{ secrets.FARCASTER_CUSTODY_ADDRESS }}
+          FARCASTER_CUSTODY_PRIVATE_KEY: ${{ secrets.FARCASTER_CUSTODY_PRIVATE_KEY }}
+          NEXT_PUBLIC_APP_DOMAIN: https://${{ steps.generate-vercel-project.outputs.project_name }}.vercel.app
+          # App Metadata
+          FARCASTER_APP_NAME: ${{ secrets.FARCASTER_APP_NAME }}
+          FARCASTER_APP_BUTTON_TITLE: ${{ secrets.FARCASTER_APP_BUTTON_TITLE }}
+          FARCASTER_APP_DESCRIPTION: ${{ secrets.FARCASTER_APP_DESCRIPTION }}
+          FARCASTER_SPLASH_BACKGROUND_COLOR: ${{ secrets.FARCASTER_SPLASH_BACKGROUND_COLOR }}
+          # API Keys
+          TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Optional Configuration
+          FARCASTER_WEBHOOK_SECRET: ${{ secrets.FARCASTER_WEBHOOK_SECRET }}
+          FLUX_GENERATION_DELAY: ${{ secrets.FLUX_GENERATION_DELAY }}
+        run: |
+          echo "Deploying to Vercel Production..."
+          vercel deploy --prod \
+            --token="$VERCEL_TOKEN" \
+            --yes \
+            --build-env FARCASTER_FID="$FARCASTER_FID" \
+            --build-env FARCASTER_CUSTODY_ADDRESS="$FARCASTER_CUSTODY_ADDRESS" \
+            --build-env FARCASTER_CUSTODY_PRIVATE_KEY="$FARCASTER_CUSTODY_PRIVATE_KEY" \
+            --build-env NEXT_PUBLIC_APP_DOMAIN="$NEXT_PUBLIC_APP_DOMAIN" \
+            --build-env FARCASTER_APP_NAME="$FARCASTER_APP_NAME" \
+            --build-env FARCASTER_APP_BUTTON_TITLE="$FARCASTER_APP_BUTTON_TITLE" \
+            --build-env FARCASTER_APP_DESCRIPTION="$FARCASTER_APP_DESCRIPTION" \
+            --build-env FARCASTER_SPLASH_BACKGROUND_COLOR="$FARCASTER_SPLASH_BACKGROUND_COLOR" \
+            --build-env TOGETHER_API_KEY="$TOGETHER_API_KEY" \
+            --build-env GEMINI_API_KEY="$GEMINI_API_KEY" \
+            --build-env FARCASTER_WEBHOOK_SECRET="$FARCASTER_WEBHOOK_SECRET" \
+            --build-env FLUX_GENERATION_DELAY="$FLUX_GENERATION_DELAY" \
+            ./
+
+      - name: "🏷️ Update repository homepage URL"
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PAT_TOKEN }}
+          script: |
+            const projectName = '${{ steps.generate-vercel-project.outputs.project_name }}';
+            const homepageUrl = `https://${projectName}.vercel.app`;
+            
+            console.log(`Updating repository homepage to: ${homepageUrl}`);
+            
+            try {
+              await github.rest.repos.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                homepage: homepageUrl
+              });
+              console.log('Successfully updated repository homepage URL');
+            } catch (error) {
+              console.error('Failed to update repository homepage URL:', error);
+              // Don't fail the workflow if homepage update fails
+            }
+
+      - name: "🔍 Deploy to Vercel (Preview)"
+        if: github.event_name == 'pull_request'
+        id: deploy-preview
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          # Farcaster Configuration
+          FARCASTER_FID: ${{ secrets.FARCASTER_FID }}
+          FARCASTER_CUSTODY_ADDRESS: ${{ secrets.FARCASTER_CUSTODY_ADDRESS }}
+          FARCASTER_CUSTODY_PRIVATE_KEY: ${{ secrets.FARCASTER_CUSTODY_PRIVATE_KEY }}
+          NEXT_PUBLIC_APP_DOMAIN: https://${{ steps.generate-vercel-project.outputs.project_name }}.vercel.app
+          # App Metadata
+          FARCASTER_APP_NAME: ${{ secrets.FARCASTER_APP_NAME }}
+          FARCASTER_APP_BUTTON_TITLE: ${{ secrets.FARCASTER_APP_BUTTON_TITLE }}
+          FARCASTER_APP_DESCRIPTION: ${{ secrets.FARCASTER_APP_DESCRIPTION }}
+          FARCASTER_SPLASH_BACKGROUND_COLOR: ${{ secrets.FARCASTER_SPLASH_BACKGROUND_COLOR }}
+          # API Keys
+          TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Optional Configuration
+          FARCASTER_WEBHOOK_SECRET: ${{ secrets.FARCASTER_WEBHOOK_SECRET }}
+          FLUX_GENERATION_DELAY: ${{ secrets.FLUX_GENERATION_DELAY }}
+        run: |
+          echo "Deploying to Vercel Preview..."
+          DEPLOYMENT_URL=$(vercel deploy \
+            --token="$VERCEL_TOKEN" \
+            --yes \
+            --build-env FARCASTER_FID="$FARCASTER_FID" \
+            --build-env FARCASTER_CUSTODY_ADDRESS="$FARCASTER_CUSTODY_ADDRESS" \
+            --build-env FARCASTER_CUSTODY_PRIVATE_KEY="$FARCASTER_CUSTODY_PRIVATE_KEY" \
+            --build-env NEXT_PUBLIC_APP_DOMAIN="$NEXT_PUBLIC_APP_DOMAIN" \
+            --build-env FARCASTER_APP_NAME="$FARCASTER_APP_NAME" \
+            --build-env FARCASTER_APP_BUTTON_TITLE="$FARCASTER_APP_BUTTON_TITLE" \
+            --build-env FARCASTER_APP_DESCRIPTION="$FARCASTER_APP_DESCRIPTION" \
+            --build-env FARCASTER_SPLASH_BACKGROUND_COLOR="$FARCASTER_SPLASH_BACKGROUND_COLOR" \
+            --build-env TOGETHER_API_KEY="$TOGETHER_API_KEY" \
+            --build-env GEMINI_API_KEY="$GEMINI_API_KEY" \
+            --build-env FARCASTER_WEBHOOK_SECRET="$FARCASTER_WEBHOOK_SECRET" \
+            --build-env FLUX_GENERATION_DELAY="$FLUX_GENERATION_DELAY" \
+            ./)
+          
+          echo "deployment_url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+
+      - name: "💬 Comment deployment URL"
+        if: github.event_name == 'pull_request' && steps.deploy-preview.outputs.deployment_url
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const deploymentUrl = '${{ steps.deploy-preview.outputs.deployment_url }}';
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `✅ Vercel preview deployment ready!\n\n🔗 ${deploymentUrl}`
+            })

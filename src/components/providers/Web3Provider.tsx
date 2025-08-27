@@ -15,7 +15,7 @@ export function Web3Provider({ children }: Web3ProviderProps) {
     return <>{children}</>;
   }
   
-  // Configure Privy for Farcaster Mini Apps
+  // Configure Privy for both Farcaster Mini Apps and browser use
   return (
     <PrivyProvider
       appId={privyAppId}
@@ -23,9 +23,18 @@ export function Web3Provider({ children }: Web3ProviderProps) {
         // Support embedded wallets and external wallets
         appearance: {
           theme: 'dark',
+          accentColor: '#2563eb', // blue-600 (non-purple primary color)
+          logo: 'https://your-app-logo-url.com/logo.png', // Replace with your logo
         },
-        // Enable Farcaster login for Mini Apps
-        loginMethods: ['farcaster', 'wallet'],
+        // Enable multiple login methods for browser compatibility
+        loginMethods: [
+          'farcaster',  // Keep for Mini App
+          'wallet',     // External wallets
+          'email',      // Email authentication for browsers
+          'google',     // Google OAuth
+          'twitter',    // Twitter/X OAuth
+          'sms',        // SMS authentication
+        ],
         // Configure embedded wallets
         embeddedWallets: {
           createOnLogin: 'users-without-wallets',

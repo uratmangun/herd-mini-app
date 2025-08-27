@@ -160,9 +160,9 @@ export function CrowdfundRefund() {
       </div>
 
       {(!authenticated || !isConnected) && (
-        <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <p className="text-sm text-yellow-800 mb-2">
-            {!authenticated ? 'Please authenticate with Farcaster to request refunds' : 'Please link a wallet to make transactions'}
+        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-sm text-blue-800 mb-2">
+            {!authenticated ? 'Please sign in to request refunds' : 'Please link a wallet to make transactions'}
           </p>
           {authenticated && !isConnected && (
             <button

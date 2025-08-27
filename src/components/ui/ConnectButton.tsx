@@ -6,9 +6,10 @@ import { useState, useEffect } from 'react';
 import frameSdk from '@farcaster/frame-sdk';
 
 export function ConnectButton() {
-  const { ready, authenticated, user, logout, linkWallet } = usePrivy();
+  const { ready, authenticated, user, logout, linkWallet, login } = usePrivy();
   const { initLoginToMiniApp, loginToMiniApp } = useLoginToMiniApp();
   const [isLoading, setIsLoading] = useState(false);
+  const [isMiniApp, setIsMiniApp] = useState(false); // Default to browser mode
 
   // Get user's linked wallets
   const linkedWallets = user?.linkedAccounts?.filter(
@@ -18,10 +19,35 @@ export function ConnectButton() {
   // Get wallet connection status using Privy instead of wagmi
   const address = linkedWallets[0]?.address;
   const isConnected = ready && authenticated && !!address;
-  
-  // Automatic Farcaster Mini App login
+
+  // Detect if we're in a Farcaster Mini App
   useEffect(() => {
-    if (ready && !authenticated && !isLoading) {
+    const checkMiniApp = () => {
+      try {
+        // Check if we're in a Farcaster Mini App context
+        const isInFrame = typeof window !== 'undefined' && window.parent !== window;
+        const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+        const isFarcasterContext = userAgent.includes('Farcaster') || 
+          (typeof window !== 'undefined' && window.location.hostname.includes('warpcast.com'));
+        
+        console.log('Environment check:', { isInFrame, isFarcasterContext, userAgent });
+        // Only set to true if we're definitely in a Mini App, otherwise stay false
+        if (isInFrame && isFarcasterContext) {
+          setIsMiniApp(true);
+        }
+      } catch (error) {
+        console.log('Mini App detection error:', error);
+        // Keep default false
+      }
+    };
+    
+    // Check immediately on mount
+    checkMiniApp();
+  }, []); // Empty dependency array - run once on mount
+  
+  // Automatic Farcaster Mini App login (only in Mini App context)
+  useEffect(() => {
+    if (ready && !authenticated && !isLoading && isMiniApp === true) {
       const login = async () => {
         setIsLoading(true);
         try {
@@ -45,7 +71,19 @@ export function ConnectButton() {
       
       login();
     }
-  }, [ready, authenticated, isLoading, initLoginToMiniApp, loginToMiniApp]);
+  }, [ready, authenticated, isLoading, isMiniApp, initLoginToMiniApp, loginToMiniApp]);
+
+  // Handle browser login
+  const handleBrowserLogin = async () => {
+    setIsLoading(true);
+    try {
+      await login();
+    } catch (error) {
+      console.error('Login error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Handle manual wallet linking
   const handleLinkWallet = async () => {
@@ -116,13 +154,31 @@ export function ConnectButton() {
     );
   }
 
-  // Show loading state
+  // Show login button for unauthenticated users in browser (not Mini App)
+  if (!authenticated && isMiniApp === false) {
+    return (
+      <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <p className="text-sm text-blue-800 mb-2">Please sign in to create and manage crowdfunds</p>
+        <button
+          onClick={handleBrowserLogin}
+          disabled={isLoading}
+          className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+        >
+          {isLoading ? 'Connecting...' : 'Sign In'}
+        </button>
+      </div>
+    );
+  }
+
+  // Show loading state for Mini App or while detecting environment
   return (
-    <button
-      disabled
-      className="px-4 py-2 text-sm border border-gray-300 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
-    >
-      {isLoading ? 'Connecting...' : 'Loading...'}
-    </button>
+    <div className="mb-6">
+      <button
+        disabled
+        className="px-4 py-2 text-sm border border-gray-300 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
+      >
+        {isLoading ? 'Connecting...' : 'Loading...'}
+      </button>
+    </div>
   );
 }

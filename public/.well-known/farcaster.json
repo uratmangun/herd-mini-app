@@ -1,19 +1,19 @@
 {
   "accountAssociation": {
     "header": "eyJmaWQiOjMzNDg0MSwidHlwZSI6ImN1c3RvZHkiLCJrZXkiOiIweDcwYzhmNzU5YzdEMzlEQ0JjMzM0NWJDQ2FkNDBDOTJCOEM4NUJjZDMifQ",
-    "payload": "eyJkb21haW4iOiI3MDFkN2FhN2U2Y2Mubmdyb2suYXBwIn0",
-    "signature": "MHhkMDZlNDM1ZWVkOGE4YjZlYmUwMWQxOTllNGYzMjM0OTljMzcyNWM2ZGFmOWZlMDNmOTY2YWY0YjlhYTg5NGY0NTljY2FhNDEzMjFmZGY2MGY2YTI1N2U1MzcxNDcyNDY2OGVjN2I1YTZlOTFhNDU0ZmZhZmY5OGNlYjVmYWVmYjFi"
+    "payload": "eyJkb21haW4iOiJmN2FlNTljMDcwNWEubmdyb2suYXBwIn0",
+    "signature": "MHgyNjQ0MjFjMjBiNTJhZTA3ZTVmNDI2NjZiZmNlOWMzMWI4YzljZjg1MGYxNjJlNjA3MDhmOWQ0ODkwYTc5MGRlMzI4NzZmODRjYjcyMmY3M2IwODhhZGJkMzRiNmZkZTNmNjZmM2ExNThmNGU1YmQzY2NiODYxOGY4MGNjNGI5NzFj"
   },
   "miniapp": {
     "version": "1",
     "name": "Herd Mini App",
-    "iconUrl": "https://701d7aa7e6cc.ngrok.app/images/flux-icon-2025-08-25T13-55-44-927Z.png",
-    "homeUrl": "https://701d7aa7e6cc.ngrok.app",
-    "imageUrl": "https://701d7aa7e6cc.ngrok.app/images/screenshot-embed-2025-08-26T00-05-50-692Z.png",
+    "iconUrl": "https://f7ae59c0705a.ngrok.app/images/flux-icon-2025-08-25T13-55-44-927Z.png",
+    "homeUrl": "https://f7ae59c0705a.ngrok.app",
+    "imageUrl": "https://f7ae59c0705a.ngrok.app/images/screenshot-embed-2025-08-26T00-05-50-692Z.png",
     "buttonTitle": "Launch App",
-    "splashImageUrl": "https://701d7aa7e6cc.ngrok.app/images/screenshot-splash-2025-08-26T00-05-55-662Z.png",
+    "splashImageUrl": "https://f7ae59c0705a.ngrok.app/images/screenshot-splash-2025-08-26T00-05-55-662Z.png",
     "splashBackgroundColor": "#0ea5e9",
-    "webhookUrl": "https://701d7aa7e6cc.ngrok.app/api/webhook",
+    "webhookUrl": "https://f7ae59c0705a.ngrok.app/api/webhook",
     "subtitle": "Herd Mini App",
     "description": "Donate using herd crowdfund trail",
     "primaryCategory": "donation",

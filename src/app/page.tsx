@@ -1,47 +1,88 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { sdk } from '@farcaster/miniapp-sdk';
+import dynamic from 'next/dynamic';
+
+// Dynamically import components that use wagmi hooks
+const ConnectButton = dynamic(() => import('@/components/ui/ConnectButton').then(mod => ({ default: mod.ConnectButton })), { 
+  ssr: false,
+  loading: () => <div className="bg-sky-600 text-white px-4 py-2 rounded-lg">Connect Wallet</div>
+});
+const CrowdfundCreation = dynamic(() => import('@/components/sections/CrowdfundCreation').then(mod => ({ default: mod.CrowdfundCreation })), { ssr: false });
+const CrowdfundDonation = dynamic(() => import('@/components/sections/CrowdfundDonation').then(mod => ({ default: mod.CrowdfundDonation })), { ssr: false });
+const CrowdfundRefund = dynamic(() => import('@/components/sections/CrowdfundRefund').then(mod => ({ default: mod.CrowdfundRefund })), { ssr: false });
+
+interface FarcasterUser {
+  fid: number;
+  username?: string;
+  displayName?: string;
+  pfp?: string;
+}
 
 export default function HomePage() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<FarcasterUser | null>(null);
+  const [context, setContext] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [isInMiniApp, setIsInMiniApp] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'create' | 'donate' | 'refund'>('create');
   const [copiedCommand, setCopiedCommand] = useState<string | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isMounted) return;
+    
     const init = async () => {
       try {
         const inApp = await sdk.isInMiniApp();
         setIsInMiniApp(inApp);
 
         if (inApp) {
-          const context = await sdk.context;
-          if (context?.user) {
-            setUser(context.user);
+          const contextData = await sdk.context;
+          setContext(contextData);
+          if (contextData?.user) {
+            setUser({
+              fid: contextData.user.fid,
+              username: contextData.user.username,
+              displayName: contextData.user.displayName,
+              pfp: contextData.user.pfpUrl,
+            });
           }
         }
       } catch (error) {
         console.error('Failed to get context:', error);
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
 
     init();
-  }, []);
+  }, [isMounted]);
+
+  if (!isMounted) {
+    return null; // Prevent hydration mismatch
+  }
 
   const handleSignIn = async () => {
     try {
-      // Generate a random nonce for the sign in request
       const nonce = Math.random().toString(36).substring(7);
       
       await sdk.actions.signIn({ nonce });
       
       // After sign in, try to get the updated context
-      const context = await sdk.context;
-      if (context?.user) {
-        setUser(context.user);
+      const contextData = await sdk.context;
+      if (contextData?.user) {
+        setUser({
+          fid: contextData.user.fid,
+          username: contextData.user.username,
+          displayName: contextData.user.displayName,
+          pfp: contextData.user.pfpUrl,
+        });
+        setContext(contextData);
       }
     } catch (error) {
       console.error('Sign in failed:', error);
@@ -51,17 +92,17 @@ export default function HomePage() {
   const handleComposeCast = async () => {
     try {
       await sdk.actions.composeCast({
-        text: 'Check out this awesome Farcaster Mini App! 🚀',
+        text: 'Check out this crowdfund mini app! 🌱 Create and support campaigns directly on Farcaster.',
         embeds: [window.location.href],
       });
     } catch (error) {
-      console.error('Failed to compose cast:', error);
+      console.error('Compose cast failed:', error);
     }
   };
 
-  const handleViewProfile = async (fid: number) => {
+  const handleViewProfile = async () => {
     try {
-      await sdk.actions.viewProfile({ fid });
+      await sdk.actions.openUrl('https://warpcast.com/~/profile');
     } catch (error) {
       console.error('Failed to view profile:', error);
     }
@@ -93,176 +134,169 @@ export default function HomePage() {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Loading...</p>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+        <div className="container mx-auto px-4 py-8">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+            <p className="mt-4 text-muted-foreground">Loading...</p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 py-8">
-      {/* Hero Section */}
-      <section className="text-center space-y-4">
-        <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-primary to-cyan-500 bg-clip-text text-transparent">
-          Farcaster Mini App
-        </h1>
-        <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-          Experience the power of decentralized social networking with our Farcaster Mini App
-        </p>
-      </section>
-
-      {/* GitHub CLI Template Section */}
-      <section className="max-w-4xl mx-auto space-y-4">
-        <div className="text-center space-y-2">
-          <h2 className="text-2xl font-bold">🚀 Get Started with This Template</h2>
-          <p className="text-muted-foreground">Clone this template and create your own Farcaster Mini App</p>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
+            🌱 Herd Crowdfund Mini App
+          </h1>
+          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto mb-6">
+            Create, support, and manage crowdfunds directly on Farcaster using Herd Trails.
+            All transactions are transparent and secured on Base network.
+          </p>
+          
+          {/* Wallet Connection */}
+          <div className="mb-6">
+            <ConnectButton />
+          </div>
         </div>
-        
-        <div className="max-w-2xl mx-auto">
-          {/* Create and Clone Combined */}
-          <div className="bg-card rounded-lg p-6 space-y-4">
-            <h3 className="font-semibold flex items-center gap-2 text-lg">
-              🚀 Create & Clone Template
-            </h3>
-            <p className="text-muted-foreground text-sm">
-              This command creates a new repository from the template and clones it to your local machine
-            </p>
-            <div className="bg-background rounded border p-4 font-mono text-sm">
-              <code>gh repo create my-farcaster-app --template uratmangun/nextjs-mini-app --clone</code>
-            </div>
+
+        {/* Tab Navigation */}
+        <div className="flex justify-center mb-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-1 shadow-lg">
             <button
-              onClick={() => copyToClipboard('gh repo create my-farcaster-app --template uratmangun/nextjs-mini-app --clone', 'combined')}
-              className="btn-outline w-full"
+              onClick={() => setActiveTab('create')}
+              className={`px-6 py-2 rounded-md font-medium transition-colors ${
+                activeTab === 'create'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-600 dark:text-gray-300 hover:text-blue-600'
+              }`}
             >
-              {copiedCommand === 'combined' ? '✅ Copied!' : '📋 Copy Command'}
+              Create Crowdfund
+            </button>
+            <button
+              onClick={() => setActiveTab('donate')}
+              className={`px-6 py-2 rounded-md font-medium transition-colors ${
+                activeTab === 'donate'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-600 dark:text-gray-300 hover:text-blue-600'
+              }`}
+            >
+              Support Projects
+            </button>
+            <button
+              onClick={() => setActiveTab('refund')}
+              className={`px-6 py-2 rounded-md font-medium transition-colors ${
+                activeTab === 'refund'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-600 dark:text-gray-300 hover:text-blue-600'
+              }`}
+            >
+              Claim Refunds
             </button>
           </div>
         </div>
 
-        <div className="text-center text-sm text-muted-foreground">
-          <p>Need GitHub CLI? Install it from <a href="https://cli.github.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">cli.github.com</a></p>
+        {/* Tab Content */}
+        <div className="max-w-4xl mx-auto">
+          {activeTab === 'create' && <CrowdfundCreation />}
+          {activeTab === 'donate' && <CrowdfundDonation />}
+          {activeTab === 'refund' && <CrowdfundRefund />}
         </div>
-      </section>
 
-      {/* User Info Card */}
-      {user ? (
-        <div className="max-w-md mx-auto">
-          <div className="bg-card rounded-lg shadow-lg p-6 space-y-4">
-            <div className="flex items-center space-x-4">
-              {user.pfpUrl && (
-                <img
-                  src={user.pfpUrl}
-                  alt={user.displayName || user.username}
-                  className="w-16 h-16 rounded-full"
-                />
-              )}
-              <div>
-                <h2 className="text-xl font-bold">{user.displayName || user.username}</h2>
-                <p className="text-muted-foreground">@{user.username}</p>
-                <p className="text-sm text-muted-foreground">FID: {user.fid}</p>
+        {/* Farcaster Integration Section */}
+        <div className="mt-12 pt-8 border-t border-gray-200 dark:border-gray-700">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 text-center">
+            Farcaster Integration
+          </h2>
+          
+          {/* User Info */}
+          {user && (
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-8">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                Welcome back! 👋
+              </h3>
+              <div className="flex items-center space-x-4">
+                {user.pfp && (
+                  <img
+                    src={user.pfp}
+                    alt="Profile"
+                    className="w-16 h-16 rounded-full"
+                  />
+                )}
+                <div>
+                  <p className="text-lg font-medium text-gray-900 dark:text-white">
+                    {user.displayName || user.username || `FID: ${user.fid}`}
+                  </p>
+                  <p className="text-gray-600 dark:text-gray-300">
+                    FID: {user.fid}
+                  </p>
+                </div>
               </div>
             </div>
+          )}
+
+          {/* Quick Actions */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-2xl mx-auto">
+            <button
+              onClick={handleSignIn}
+              disabled={!!user || isLoading}
+              className={`p-4 rounded-lg border transition-colors ${
+                user 
+                  ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400'
+                  : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600'
+              }`}
+            >
+              <div className="text-center">
+                <div className="text-2xl mb-2">🔐</div>
+                <div className="font-medium">{user ? 'Signed In' : 'Sign In'}</div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  {user ? 'Authenticated' : 'Connect with Farcaster'}
+                </div>
+              </div>
+            </button>
+
+            <button
+              onClick={handleComposeCast}
+              disabled={isLoading}
+              className="p-4 rounded-lg border bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 transition-colors"
+            >
+              <div className="text-center">
+                <div className="text-2xl mb-2">✍️</div>
+                <div className="font-medium">Share Campaign</div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  Compose a cast
+                </div>
+              </div>
+            </button>
+
+            <button
+              onClick={handleViewProfile}
+              disabled={isLoading}
+              className="p-4 rounded-lg border bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 transition-colors"
+            >
+              <div className="text-center">
+                <div className="text-2xl mb-2">👤</div>
+                <div className="font-medium">View Profile</div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  Open on Farcaster
+                </div>
+              </div>
+            </button>
+          </div>
+
+          {/* Status */}
+          <div className="text-center mt-8 pt-8 border-t border-gray-200 dark:border-gray-700">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              {isInMiniApp ? '🟢 Running inside Farcaster Mini App' : '🟡 Running in browser mode'}
+            </p>
           </div>
         </div>
-      ) : (
-        <div className="text-center">
-          <button
-            onClick={handleSignIn}
-            className="btn-primary px-8 py-3 text-lg"
-          >
-            Sign In with Farcaster
-          </button>
-        </div>
-      )}
-
-      {/* Feature Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-        <div className="bg-card rounded-lg p-6 space-y-3">
-          <h3 className="text-xl font-semibold">📝 Compose Cast</h3>
-          <p className="text-muted-foreground">Share your thoughts with the Farcaster community</p>
-          <button
-            onClick={handleComposeCast}
-            className="btn-outline w-full"
-            disabled={!isInMiniApp}
-          >
-            Compose New Cast
-          </button>
-        </div>
-
-        <div className="bg-card rounded-lg p-6 space-y-3">
-          <h3 className="text-xl font-semibold">⭐ Add to Favorites</h3>
-          <p className="text-muted-foreground">Save this mini app to your favorites for quick access</p>
-          <button
-            onClick={handleAddMiniApp}
-            className="btn-outline w-full"
-            disabled={!isInMiniApp}
-          >
-            Add Mini App
-          </button>
-        </div>
-
-        <div className="bg-card rounded-lg p-6 space-y-3">
-          <h3 className="text-xl font-semibold">👤 View Profile</h3>
-          <p className="text-muted-foreground">Explore user profiles on Farcaster</p>
-          <button
-            onClick={() => user && handleViewProfile(user.fid)}
-            className="btn-outline w-full"
-            disabled={!isInMiniApp || !user}
-          >
-            View My Profile
-          </button>
-        </div>
-
-        <div className="bg-card rounded-lg p-6 space-y-3">
-          <h3 className="text-xl font-semibold">🔗 External Links</h3>
-          <p className="text-muted-foreground">Open external resources</p>
-          <button
-            onClick={() => handleOpenUrl('https://warpcast.com')}
-            className="btn-outline w-full"
-            disabled={!isInMiniApp}
-          >
-            Open Warpcast
-          </button>
-        </div>
-
-        <div className="bg-card rounded-lg p-6 space-y-3">
-          <h3 className="text-xl font-semibold">🎯 Quick Auth</h3>
-          <p className="text-muted-foreground">Seamless authentication for Farcaster users</p>
-          <div className="text-sm text-muted-foreground">
-            {isInMiniApp ? '✅ Enabled' : '❌ Not in Mini App'}
-          </div>
-        </div>
-
-        <div className="bg-card rounded-lg p-6 space-y-3">
-          <h3 className="text-xl font-semibold">🔔 Notifications</h3>
-          <p className="text-muted-foreground">Send push notifications to users</p>
-          <div className="text-sm text-muted-foreground">
-            Webhook configured
-          </div>
-        </div>
-
-        <div className="bg-card rounded-lg p-6 space-y-3">
-          <h3 className="text-xl font-semibold">⚡ Edge Runtime</h3>
-          <p className="text-muted-foreground">Deployed globally on Cloudflare</p>
-          <div className="text-sm text-muted-foreground">
-            Sub-50ms response times
-          </div>
-        </div>
-      </div>
-
-      {/* Status Section */}
-      <div className="max-w-2xl mx-auto text-center space-y-2 pt-8">
-        <p className="text-sm text-muted-foreground">
-          {isInMiniApp ? '🟢 Running inside Farcaster' : '🟡 Running in browser'}
-        </p>
-        <p className="text-sm text-muted-foreground">
-           by uratmangun
-        </p>
       </div>
     </div>
   );

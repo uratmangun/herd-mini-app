@@ -6,7 +6,7 @@
   },
   "miniapp": {
     "version": "1",
-    "name": "Next.js Mini App",
+    "name": "Herd Mini App",
     "iconUrl": "https://701d7aa7e6cc.ngrok.app/images/flux-icon-2025-08-25T13-55-44-927Z.png",
     "homeUrl": "https://701d7aa7e6cc.ngrok.app",
     "imageUrl": "https://701d7aa7e6cc.ngrok.app/images/screenshot-embed-2025-08-26T00-05-50-692Z.png",
@@ -14,14 +14,13 @@
     "splashImageUrl": "https://701d7aa7e6cc.ngrok.app/images/screenshot-splash-2025-08-26T00-05-55-662Z.png",
     "splashBackgroundColor": "#0ea5e9",
     "webhookUrl": "https://701d7aa7e6cc.ngrok.app/api/webhook",
-    "subtitle": "A Next.js Farcaster Mini App",
-    "description": "Built with Next.js, deployed on Cloudflare Pages",
-    "primaryCategory": "productivity",
+    "subtitle": "Herd Mini App",
+    "description": "Donate using herd crowdfund trail",
+    "primaryCategory": "donation",
     "tags": [
-      "nextjs",
+      "herd",
       "farcaster",
-      "web3",
-      "cloudflare"
+      "web3"
     ]
   }
 }

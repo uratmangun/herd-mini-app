@@ -167,38 +167,40 @@ export default function HomePage() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex justify-center mb-8">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-1 shadow-lg">
-            <button
-              onClick={() => setActiveTab('create')}
-              className={`px-6 py-2 rounded-md font-medium transition-colors ${
-                activeTab === 'create'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-600 dark:text-gray-300 hover:text-blue-600'
-              }`}
-            >
-              Create Crowdfund
-            </button>
-            <button
-              onClick={() => setActiveTab('donate')}
-              className={`px-6 py-2 rounded-md font-medium transition-colors ${
-                activeTab === 'donate'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-600 dark:text-gray-300 hover:text-blue-600'
-              }`}
-            >
-              Support Projects
-            </button>
-            <button
-              onClick={() => setActiveTab('refund')}
-              className={`px-6 py-2 rounded-md font-medium transition-colors ${
-                activeTab === 'refund'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-600 dark:text-gray-300 hover:text-blue-600'
-              }`}
-            >
-              Claim Refunds
-            </button>
+        <div className="flex justify-center mb-8 px-4 sm:px-0">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-1 shadow-lg w-full sm:w-auto">
+            <div className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-1">
+              <button
+                onClick={() => setActiveTab('create')}
+                className={`w-full sm:w-auto px-6 py-2 rounded-md font-medium transition-colors ${
+                  activeTab === 'create'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-600 dark:text-gray-300 hover:text-blue-600'
+                }`}
+              >
+                Create Crowdfund
+              </button>
+              <button
+                onClick={() => setActiveTab('donate')}
+                className={`w-full sm:w-auto px-6 py-2 rounded-md font-medium transition-colors ${
+                  activeTab === 'donate'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-600 dark:text-gray-300 hover:text-blue-600'
+                }`}
+              >
+                Support Projects
+              </button>
+              <button
+                onClick={() => setActiveTab('refund')}
+                className={`w-full sm:w-auto px-6 py-2 rounded-md font-medium transition-colors ${
+                  activeTab === 'refund'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-600 dark:text-gray-300 hover:text-blue-600'
+                }`}
+              >
+                Claim Refunds
+              </button>
+            </div>
           </div>
         </div>
 

@@ -126,7 +126,7 @@ export function ConnectButton() {
     const displayAddress = address || linkedWallets[0]?.address;
     
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex items-center justify-center gap-2">
         <span className="text-sm">
           {displayAddress ? `${displayAddress.slice(0, 6)}...${displayAddress.slice(-4)}` : 'Connected'}
         </span>

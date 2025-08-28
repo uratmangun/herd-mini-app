@@ -16,7 +16,7 @@
     "webhookUrl": "https://5abc05d123f0.ngrok-free.app/api/webhook",
     "subtitle": "Herd Mini App",
     "description": "Donate using herd crowdfund trail",
-    "primaryCategory": "donation",
+    "primaryCategory": "social",
     "tags": [
       "herd",
       "farcaster",

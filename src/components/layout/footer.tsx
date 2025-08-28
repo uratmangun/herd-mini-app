@@ -75,7 +75,7 @@ export function Footer() {
           </div>
 
           <div className="mt-8 pt-8 border-t border-gray-200 dark:border-gray-700 text-center text-sm text-gray-600 dark:text-gray-400">
-            <p>&copy; {currentYear} Herd Crowdfund Mini App. Built with Herd Trails on Base.</p>
+            <p>&copy; {currentYear} Herd Crowdfund Mini App. Built with Herd Trails on Base.by uratmangun</p>
           </div>
         </div>
       </footer>

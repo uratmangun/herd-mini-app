@@ -262,6 +262,8 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           FARCASTER_WEBHOOK_SECRET: ${{ secrets.FARCASTER_WEBHOOK_SECRET }}
           FLUX_GENERATION_DELAY: ${{ secrets.FLUX_GENERATION_DELAY }}
+          NEXT_PUBLIC_PRIVY_APP_ID: ${{ secrets.NEXT_PUBLIC_PRIVY_APP_ID }}
+          NEXT_PUBLIC_HERD_TRAIL_APP_ID: ${{ secrets.NEXT_PUBLIC_HERD_TRAIL_APP_ID }}
 
       - name: "🚀 Deploy to Vercel (Production)"
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
@@ -283,6 +285,8 @@ jobs:
           # Optional Configuration
           FARCASTER_WEBHOOK_SECRET: ${{ secrets.FARCASTER_WEBHOOK_SECRET }}
           FLUX_GENERATION_DELAY: ${{ secrets.FLUX_GENERATION_DELAY }}
+          NEXT_PUBLIC_PRIVY_APP_ID: ${{ secrets.NEXT_PUBLIC_PRIVY_APP_ID }}
+          NEXT_PUBLIC_HERD_TRAIL_APP_ID: ${{ secrets.NEXT_PUBLIC_HERD_TRAIL_APP_ID }}
         run: |
           echo "Deploying to Vercel Production..."
           vercel deploy --prod \
@@ -300,6 +304,8 @@ jobs:
             --build-env GEMINI_API_KEY="$GEMINI_API_KEY" \
             --build-env FARCASTER_WEBHOOK_SECRET="$FARCASTER_WEBHOOK_SECRET" \
             --build-env FLUX_GENERATION_DELAY="$FLUX_GENERATION_DELAY" \
+            --build-env NEXT_PUBLIC_PRIVY_APP_ID="$NEXT_PUBLIC_PRIVY_APP_ID" \
+            --build-env NEXT_PUBLIC_HERD_TRAIL_APP_ID="$NEXT_PUBLIC_HERD_TRAIL_APP_ID" \
             ./
 
       - name: "🏷️ Update repository homepage URL"

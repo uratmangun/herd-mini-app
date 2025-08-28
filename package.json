@@ -15,6 +15,10 @@
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
+    "farcaster:generate": "node scripts/generate-farcaster-account-association.js generate",
+    "farcaster:prepare": "node scripts/generate-farcaster-account-association.js prepare",
+    "farcaster:validate": "node scripts/generate-farcaster-account-association.js validate",
+    "farcaster:decode": "node scripts/generate-farcaster-account-association.js decode",
     "generate:assets": "node scripts/generate-farcaster-account-association.js generate & node scripts/generate-screenshots.js & wait"
   },
   "dependencies": {
